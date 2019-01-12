@@ -6,10 +6,27 @@
 
 cap prog drop groupfunction
 program define groupfunction, eclass
-version 11.2
-syntax [aw pw fw] , [sum(varlist numeric)  rawsum(varlist numeric) ///
-mean(varlist numeric) first(varlist numeric) max(varlist numeric) min(varlist numeric) ///
-count(varlist numeric) sd(varlist numeric) gini(varlist numeric) theil(varlist numeric) VARiance(varlist numeric) by(varlist) norestore]
+version 11.2, missing
+#delimit;
+syntax [aw pw fw] , 
+[
+sum(varlist numeric)  
+rawsum(varlist numeric) 
+mean(varlist numeric) 
+first(varlist numeric) 
+max(varlist numeric) 
+min(varlist numeric) 
+count(varlist numeric) 
+sd(varlist numeric) 
+gini(varlist numeric) 
+theil(varlist numeric)
+VARiance(varlist numeric) 
+by(varlist) 
+norestore
+xtile(varlist numeric)
+nq(numlist max=1 int >0)
+];
+#delimit cr
 qui{
 if ("`by'"==""){
 	tempvar myby
@@ -17,8 +34,9 @@ if ("`by'"==""){
 	local by `myby'
 	
 }
+if ("`xtile'"!="") local forby forby
 local wvar : word 2 of `exp'
-if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min' `count' `sd' `variance' `gini' `theil'
+if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min' `count' `sd' `variance' `gini' `theil' `xtile' 
 	tempvar _useit _gr0up _thesort
 	//gen `_thesort'   =_n
 	gen `_useit'	 = 1
@@ -48,19 +66,32 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 		local wvar `peso'
 	}
 	else{
-		replace `_useit'=0 if `wvar'==.
+		replace `_useit'=0 if missing(`wvar')
+	}
+	if ("`forby'"!=""){
+		//Only one var can be specified
+		tokenize `xtile'
+		if ("`2'"!=""){
+			dis as error "When specifying xtile variables with forby option, only one is allowed"
+			error 111
+			exit
+		}
+		if ("`nq'"==""){
+			dis as error "When specifying xtile, nq needs to be specified"
+			error 111
+			exit
+		}
+		replace `_useit'=0 if missing(`xtile')
 	}
 	
-	local procs sum mean first max min count rawsum sd variance gini theil
+	local procs sum mean first max min count rawsum sd variance gini theil xtile
 	
 	local empty=1
 	
 	foreach ss of local procs{
 		if ("``ss''"!="") local empty = 0
 	}
-	
-	
-	
+		
 	if (`empty'==1){
 		display as error "Please specify variables for sum, rawsum, mean, min, max, count, sd, variance, or first"
 		error 301
@@ -71,6 +102,8 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 		gen `_gr0up' =1
 		local by `_gr0up'
 	}
+	
+
 	//adjust here when adding new functions
 	local procs sum mean first max min count rawsum sd variance gini theil
 	local check
@@ -84,10 +117,33 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 		display as error "Please specify unique names for variables in sum, first, mean, max, min, gini, theil options"
 	}
 	
-	
-	sort `by'
-	
 	local numby = wordcount("`by'")
+	if ("`forby'"=="") local ++numby
+		
+	if (`numby'>1|"`strs'"!=""){
+		tempvar _1x1
+		egen `_1x1' = group(`by')
+		local thearea `_1x1'
+	}
+	else{
+		local thearea `by'
+	}
+	
+	if ("`forby'"=="") sort `thearea'
+	else{ 
+		levelsof `thearea' if `_useit'==1, local(myforby)
+		
+		foreach hi of local myforby{
+			tempvar _myby
+			gen `_myby' = `thearea'==`hi'
+			mata: w=st_data(.,tokens("`wvar'"),"`_myby'")	
+			mata: st_view(__i=.,.,tokens("`xtile'"),"`_myby'")		
+			mata:__i[.,.] =_fpctilebig(__i,1,`nq',w)	
+		}
+		sort `thearea' `xtile'
+		local thearea `thearea' `xtile'
+		local by `by' `xtile'
+	}
 	
 	//Account for more than one by variable, and strings
 	foreach x of local by{
@@ -103,31 +159,16 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 	
 	local by2: list by - strs
 	mata: st_view(nostrs=.,.,tokens("`by2'"),"`_useit'")
-	
-	
-	/*
-	foreach x of local by{
-	if ("`:val lab `x''"!=""){
-	levelsof `x', local(nb)
-	local _val`x' lab def _val`x' 			
-	foreach i of local nb{
-	local _val`x' `_val`x'' `i'  `"Group `:lab `:val lab `x'' `i''"'
-	}
-	}
-	}
-	dis "`_valforeign'"
-	*/
-	if (`numby'>1|"`strs'"!=""){
-		tempvar _1x1
-		egen `_1x1' = group(`by')
-		local thearea `_1x1'
-	}
-	else local thearea `by'
+
 	
 	//Import data into mata
 	mata: w=st_data(.,tokens("`wvar'"),"`_useit'")	
-	mata: st_view(area=.,.,tokens("`thearea'"),"`_useit'")
+	
+	if ("`forby'"=="") mata: st_view(area=.,.,tokens("`thearea'"),"`_useit'")
+	else mata: st_view(area=.,.,tokens("`xtile'"),"`_useit'")
+	
 	mata: info = panelsetup(area,1)
+
 	//mata: rows(info)
 	//Get area matrix
 	
@@ -237,49 +278,7 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 			if ("`todrop'"!="") drop `todrop'
 		}
 	}
-	
-	/*
-	if ("`gini'"!=""){
-		local mycount = 1
-		foreach ginivar of local gini{
-			tempvar giniuse 
-			gen `giniuse' = ~missing(`ginivar') & ~missing(`wvar')			
-			mata: st_view(x=.,.,tokens("`ginivar'"),"`giniuse'")
-			mata: st_view(wgini=.,.,tokens("`wvar'"),"`giniuse'")
-			mata: st_view(areagini=.,.,tokens("`thearea'"),"`giniuse'")
-			mata: infogini = panelsetup(areagini,1)
-
-			if (`mycount'==1) mata: xgini = _fastgini(x,wgini,infogini)
-			else              mata: xgini = xgini,_fastgini(x,wgini,infogini)
-			local ++mycount
-		}
-		local todrop: list gini - wvar
-		local todrop: list todrop - thearea
-		drop `todrop'
-		cap drop `giniuse'
-	}
-	
-	if ("`theil'"!=""){
-		local mycount = 1
-		foreach theilvar of local theil{
-			tempvar theiluse 
-			gen `theiluse' = ~missing(`theilvar') & ~missing(`wvar')			
-			mata: st_view(x=.,.,tokens("`theilvar'"),"`theiluse'")
-			mata: st_view(wtheil=.,.,tokens("`wvar'"),"`theiluse'")
-			mata: st_view(areatheil=.,.,tokens("`thearea'"),"`theiluse'")
-			mata: infotheil = panelsetup(areatheil,1)
-
-			if (`mycount'==1) mata: xtheil = _fasttheil(x,wtheil,infotheil)
-			else 			  mata: xtheil = xtheil,_fasttheil(x,wtheil,infotheil)
-			local ++mycount
-		}
-		local todrop: list theil - wvar
-		local todrop: list todrop - thearea
-		drop `todrop'
-		cap drop `theiluse'
-	}
-	*/
-	
+		
 	foreach x of local procs{
 		if ("``x''"!=""){
 			local finmat `finmat' x`x'
@@ -654,6 +653,24 @@ function _CPBfgts(x,w,z,a){
 		else      out = out,_CPBfgt(x[.,i],w,z,a)
 	}
 return(out)
+}
+
+//Returns xtile classiffication for each observation
+function _fpctilebig(real colvector X, si ,real scalar nq, |real colvector w) {
+	rr = rows(X)
+	if (args()==2) w = J(rr,1,1)	
+	if (rr < nq) {
+		_error(3200, "Number of bins is more than the number of observations")
+		exit(error(3200))       
+	}
+	data = runningsum(J(rr,1,1)), X, w
+	if (si==1) _sort(data,(2,3))
+	nq0 = quadsum(data[.,3])/nq 
+	//nq0
+	q = trunc((quadrunningsum(data[.,3]):/nq0):+1e-15):+1 	
+	q[|rr|] = nq
+	if (si==1) return(q[order(data,1)])
+	else return(q)
 }
 
 end

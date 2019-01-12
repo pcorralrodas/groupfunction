@@ -25,6 +25,8 @@
 {opt variance(varlist)}
 {opt gini(varlist)}
 {opt theil(varlist)}
+{opt xtile(varlist)}
+{opt nq(int)}
 {opt norestore}
 
 {title:Description}
@@ -36,6 +38,12 @@
 
 {phang}
 {opt by(varlist)} Grouping for reporting estimates.
+
+{phang}
+{opt xtile(varlist)} Coupled with nq(), it creates variable with percentiles and adds it to the by() option.
+
+{phang}
+{opt nq(int)} Option only works when xtile() is specified. It indicates the number of quantiles.
 
 {phang}
 {opt mean(varlist)} Calculates means of specified variables.
