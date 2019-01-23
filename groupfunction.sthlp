@@ -27,6 +27,7 @@
 {opt theil(varlist)}
 {opt xtile(varlist)}
 {opt nq(int)}
+{opt missing}
 {opt norestore}
 
 {title:Description}
@@ -77,6 +78,9 @@
 
 {phang}
 {opt theil(varlist)} Calculates Theil coefficient of specified variables.
+
+{phang}
+{opt missing} This option is only relevant for sum and rawsum. If an entire group in by() is missing for the sum/rawsum variable the output will be missing instead of zero.
 
 {phang}
 {opt norestore} Drops all non-relevant variables before calculations to improve memory management. 

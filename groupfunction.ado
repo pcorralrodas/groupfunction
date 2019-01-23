@@ -6,26 +6,27 @@
 
 cap prog drop groupfunction
 program define groupfunction, eclass
-version 11.2, missing
-#delimit;
-syntax [aw pw fw] , 
-[
-sum(varlist numeric)  
-rawsum(varlist numeric) 
-mean(varlist numeric) 
-first(varlist numeric) 
-max(varlist numeric) 
-min(varlist numeric) 
-count(varlist numeric) 
-sd(varlist numeric) 
-gini(varlist numeric) 
-theil(varlist numeric)
-VARiance(varlist numeric) 
-by(varlist) 
-norestore
-xtile(varlist numeric)
-nq(numlist max=1 int >0)
-];
+	version 11.2, missing
+	#delimit;
+	syntax [aw pw fw] , 
+	[
+	sum(varlist numeric)  
+	rawsum(varlist numeric) 
+	mean(varlist numeric) 
+	first(varlist numeric) 
+	max(varlist numeric) 
+	min(varlist numeric) 
+	count(varlist numeric) 
+	sd(varlist numeric) 
+	gini(varlist numeric) 
+	theil(varlist numeric)
+	VARiance(varlist numeric) 
+	by(varlist) 
+	norestore
+	xtile(varlist numeric)
+	nq(numlist max=1 int >0)
+	missing
+	];
 #delimit cr
 qui{
 if ("`by'"==""){
@@ -166,7 +167,14 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 	
 	if ("`forby'"=="") mata: st_view(area=.,.,tokens("`thearea'"),"`_useit'")
 	else mata: st_view(area=.,.,tokens("`xtile'"),"`_useit'")
-	
+	/*
+	mata: if (allof(x:==.)) st_local(cont, 0)
+	if ("`cont'"=="0"){
+		display as error "Your by group has all values missing"
+		error 119
+		exit
+	}	
+	*/
 	mata: info = panelsetup(area,1)
 
 	//mata: rows(info)
@@ -180,10 +188,12 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 		mata: nostrs=nostrs[info[.,1],.]
 	}
 	
+	if ("`missing'"=="") local miss = 0
+	else local miss = 1
 		
 	if ("`sum'"!=""){
 		mata: st_view(x=.,.,tokens("`sum'"),"`_useit'")			
-		mata: xsum = _fastsum(x,w,info)
+		mata: xsum = _fastsum(x,w,info, `miss')
 		local todrop: list sum - wvar
 		local todrop: list todrop - thearea
 		if ("`todrop'"!="") drop `todrop'
@@ -193,7 +203,7 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 		mata: st_view(x=.,.,tokens("`rawsum'"),"`_useit'")	
 		
 		mata: w2=J(rows(w),1,1)	
-		mata: xrawsum = _fastsum(x,w2,info)
+		mata: xrawsum = _fastsum(x,w2,info, `miss')
 		local todrop: list rawsum - wvar
 		local todrop: list todrop - thearea
 		if ("`todrop'"!="") drop `todrop'
@@ -449,20 +459,33 @@ function _fastvariance(real matrix x, real matrix w, real matrix info){
 
 
 //data should have been previously sorted
-function _fastsum(real matrix x, real matrix w, real matrix info){
+function _fastsum(real matrix x, real matrix w, real matrix info, miss){
 	//ww = strtoreal(stlocal("rawsum")
 	r  = rows(info)
 	jj = cols(x)
 	X1 = J(rows(info),cols(x),0)
-	//check to see if we can use block 
+	//check to see if we can use block 	
 	if ((hasmissing(x)+hasmissing(w))!=0){
 		//slow option
 		for(i=1; i<=r;i++){
 			panelsubview(xi=.,x,i,info)
 			panelsubview(wi=.,w,i,info)
+			
 			for(j=1;j<=jj;j++){
-				if(j==1) X1[i,1] = quadcolsum(xi[.,j]:*wi)
-				else     X1[i,j] = quadcolsum(xi[.,j]:*wi)
+				if (miss==1){
+					if (colnonmissing(xi[.,j])!=0){
+						if(j==1) X1[i,1] = quadcolsum(xi[.,j]:*wi)
+						else     X1[i,j] = quadcolsum(xi[.,j]:*wi)
+					}
+					else{
+						if(j==1) X1[i,1] = .
+						else     X1[i,j] = .
+					}
+				}
+				else{
+					if(j==1) X1[i,1] = quadcolsum(xi[.,j]:*wi)
+					else     X1[i,j] = quadcolsum(xi[.,j]:*wi)
+				}
 			}
 		}
 	}
