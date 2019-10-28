@@ -592,6 +592,7 @@ mata:st_view(w=., .,"`wvar'","`touse1'")
 if ("`poverty'"!=""){
 	if ("`line'"==""){
 		dis as error "You need to specify a threshold for poverty calculation"
+		error 198
 		exit
 	}
 }
@@ -599,6 +600,7 @@ if ("`poverty'"!=""){
 if ("`line'"!=""){
 	if ("`poverty'"==""){
 		dis as error "You specified a poverty line, but no FGT value"
+		error 198
 		exit
 	}
 }
