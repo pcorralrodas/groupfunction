@@ -2,6 +2,7 @@
 * Paul Corral - World Bank Group 
 * Minh Nguyen - World Bank Group 
 * Joao Pedro Azevedo - World Bank Group 
+* Haoyu Wu - World Bank Group
 
 
 cap prog drop groupfunction
@@ -136,7 +137,7 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 		
 		foreach hi of local myforby{
 			tempvar _myby
-			gen `_myby' = `thearea'==`hi'
+			gen `_myby' = `thearea'==`hi' & `_useit'==1
 			mata: w=st_data(.,tokens("`wvar'"),"`_myby'")	
 			mata: st_view(__i=.,.,tokens("`xtile'"),"`_myby'")		
 			mata:__i[.,.] =_fpctilebig(__i,1,`nq',w)	
@@ -592,6 +593,7 @@ mata:st_view(w=., .,"`wvar'","`touse1'")
 if ("`poverty'"!=""){
 	if ("`line'"==""){
 		dis as error "You need to specify a threshold for poverty calculation"
+		error 198
 		exit
 	}
 }
@@ -599,6 +601,7 @@ if ("`poverty'"!=""){
 if ("`line'"!=""){
 	if ("`poverty'"==""){
 		dis as error "You specified a poverty line, but no FGT value"
+		error 198
 		exit
 	}
 }
