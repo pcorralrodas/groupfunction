@@ -2,7 +2,6 @@
 * Paul Corral - World Bank Group 
 * Minh Nguyen - World Bank Group 
 * Joao Pedro Azevedo - World Bank Group 
-* Haoyu Wu - World Bank Group
 
 
 cap prog drop groupfunction
@@ -27,6 +26,7 @@ program define groupfunction, eclass
 	xtile(varlist numeric)
 	nq(numlist max=1 int >0)
 	missing
+	slow
 	];
 #delimit cr
 qui{
@@ -137,7 +137,7 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 		
 		foreach hi of local myforby{
 			tempvar _myby
-			gen `_myby' = `thearea'==`hi' & `_useit'==1
+			gen `_myby' = `thearea'==`hi'
 			mata: w=st_data(.,tokens("`wvar'"),"`_myby'")	
 			mata: st_view(__i=.,.,tokens("`xtile'"),"`_myby'")		
 			mata:__i[.,.] =_fpctilebig(__i,1,`nq',w)	
@@ -181,6 +181,9 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 	//mata: rows(info)
 	//Get area matrix
 	
+		if ("`slow'"!="") local slow=1
+		else              local slow=0
+	
 	if ("`strs'"!=""){
 		mata: strs=strs[info[.,1],.]
 		mata: nostrs=nostrs[info[.,1],.]
@@ -219,8 +222,8 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 	}
 	
 	if ("`mean'"!=""){
-		mata: st_view(x=.,.,tokens("`mean'"),"`_useit'")	
-		mata: xmean = _fastmean(x,w,info)
+		mata: st_view(x=.,.,tokens("`mean'"),"`_useit'")
+		mata: xmean = _fastmean(x,w,info, `slow')
 		local todrop: list mean - wvar
 		local todrop: list todrop - thearea
 		if ("`todrop'"!="") drop `todrop'		
@@ -348,6 +351,18 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 			if "`lbl_`x''"~="" lab val `x' `lbl_`x''
 		}
 	}
+	mata: mata drop area info nostrs 
+	cap mata: mata drop x
+	cap mata: mata drop y
+	cap mata: mata drop w
+	cap mata: mata drop xmean
+	cap mata: mata drop xgini
+	cap mata: mata drop xgini1
+	cap mata: mata drop xsum
+	cap mata: mata drop xrawsum
+	cap mata: mata drop w2
+	cap mata: mata drop xx
+	
 }
 	
 end
@@ -405,14 +420,13 @@ function _fastgini(real matrix x, real matrix w, real matrix info){
 
 
 //data should have been previously sorted
-function _fastmean(real matrix x, real matrix w, real matrix info){
-	
-	
+function _fastmean(real matrix x, real matrix w, real matrix info, slow){
+
 	r  = rows(info)
 	jj = cols(x)
 	X1 = J(rows(info),cols(x),0)
 	//check to see if we can use block 
-	if ((hasmissing(x)+hasmissing(w))!=0){
+	if (((hasmissing(x)+hasmissing(w))!=0)|slow==1){
 		//slow option
 		for(i=1; i<=r;i++){
 			panelsubview(xi=.,x,i,info)
