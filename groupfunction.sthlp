@@ -85,6 +85,12 @@
 {phang}
 {opt norestore} Drops all non-relevant variables before calculations to improve memory management. 
 
+{phang}
+{opt slow} Use this option if you run into memory issues, it will get values one by one.
+
+{phang}
+{opt merge} Requests that values are not to be collapsed, it instead merges the new vectors to the dataset in memory.
+
 {title:Example}
 sysuse auto, clear
 groupfunction [aw=weight], mean(price) min(weight) by(foreign)

@@ -308,10 +308,13 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 	if ("`merge'"!=""){
 		local lasvar  `procs2'
 		foreach x of local lasvar{
-			foreach y of local `x'{				
-				gen double `x'_`y' = .
-				lab var `x'_`y' "`x' of `y'"
-				local _all `_all' `x'_`y'			
+			foreach y of local `x'{	
+				if ("`exp'"=="") local WwW 
+				else local WwW w
+				gen double `WwW'`x'_`y' = .
+				if ("`exp'"=="") lab var `WwW'`x'_`y' "`x' of `y'"
+				else lab var `WwW'`x'_`y' " Weighted `x' of `y'"
+				local _all `_all' `WwW'`x'_`y'			
 			}
 		}
 		noi:mata: st_store(.,tokens(st_local("_all")),"`_useit'",theexpanse(info,xx))
