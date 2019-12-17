@@ -27,6 +27,7 @@ program define groupfunction, eclass
 	nq(numlist max=1 int >0)
 	missing
 	slow
+	merge
 	];
 #delimit cr
 qui{
@@ -200,7 +201,7 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 		mata: xsum = _fastsum(x,w,info, `miss')
 		local todrop: list sum - wvar
 		local todrop: list todrop - thearea
-		if ("`todrop'"!="") drop `todrop'
+		if ("`todrop'"!="" & "`merge'"=="") drop `todrop'
 	}
 	
 	if ("`rawsum'"!=""){
@@ -210,7 +211,7 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 		mata: xrawsum = _fastsum(x,w2,info, `miss')
 		local todrop: list rawsum - wvar
 		local todrop: list todrop - thearea
-		if ("`todrop'"!="") drop `todrop'
+		if ("`todrop'"!="" & "`merge'"=="") drop `todrop'
 	}
 	
 	if ("`count'"!="") {
@@ -218,7 +219,7 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 		mata: xcount = _fastcount(x,info)
 		local todrop: list count - wvar
 		local todrop: list todrop - thearea
-		if ("`todrop'"!="") drop `todrop'
+		if ("`todrop'"!="" & "`merge'"=="") drop `todrop'
 	}
 	
 	if ("`mean'"!=""){
@@ -226,7 +227,7 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 		mata: xmean = _fastmean(x,w,info, `slow')
 		local todrop: list mean - wvar
 		local todrop: list todrop - thearea
-		if ("`todrop'"!="") drop `todrop'		
+		if ("`todrop'"!="" & "`merge'"=="") drop `todrop'		
 	}
 	
 	if ("`sd'"!=""){
@@ -234,7 +235,7 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 		mata: xsd = sqrt(_fastvariance(x,w,info))
 		local todrop: list sd - wvar
 		local todrop: list todrop - thearea
-		if ("`todrop'"!="") drop `todrop'
+		if ("`todrop'"!="" & "`merge'"=="") drop `todrop'
 	}
 	
 	if ("`variance'"!=""){
@@ -242,7 +243,7 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 		mata: xvariance = (_fastvariance(x,w,info))
 		local todrop: list variance - wvar
 		local todrop: list todrop - thearea
-		if ("`todrop'"!="") drop `todrop'
+		if ("`todrop'"!="" & "`merge'"=="") drop `todrop'
 	}
 	
 	if ("`first'"!=""){
@@ -250,7 +251,7 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 		mata: xfirst = _fastfirst(x,info)
 		local todrop: list first - wvar
 		local todrop: list todrop - thearea
-		if ("`todrop'"!="") drop `todrop'
+		if ("`todrop'"!="" & "`merge'"=="") drop `todrop'
 	}
 	
 	if ("`max'"!=""){
@@ -258,7 +259,7 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 		mata: xmax = _fastmax(x,info)
 		local todrop: list max - wvar
 		local todrop: list todrop - thearea
-		if ("`todrop'"!="") drop `todrop'
+		if ("`todrop'"!="" & "`merge'"=="") drop `todrop'
 	}
 	
 	if ("`min'"!=""){
@@ -266,7 +267,7 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 		mata: xmin = _fastmin(x,info)
 		local todrop: list min - wvar
 		local todrop: list todrop - thearea
-		if ("`todrop'"!="") drop `todrop'
+		if ("`todrop'"!="" & "`merge'"=="") drop `todrop'
 	}
 	
 	if ("`gini'"!=""|"`theil'"!=""){
@@ -289,7 +290,7 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 			
 			local todrop: list `indic' - wvar
 			local todrop: list todrop - thearea
-			if ("`todrop'"!="") drop `todrop'
+			if ("`todrop'"!="" & "`merge'"=="") drop `todrop'
 		}
 	}
 		
@@ -299,56 +300,67 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 			local procs2 `procs2' `x'
 		}
 	}
-	dis 
 	local finmat=subinstr("`finmat'"," ",",",.)
 	mata: xx=(`finmat')
 	//Save number of observations
 	mata: st_matrix("_obs_",rows(info))
 	
-	
-	//SAVE RESULTS in STATA
-	clear
-	local lasvar  by2 `procs2'
-	local o=_obs_[1,1]
-	
-	set obs `o'
-	if "`strs'"!=""{
-		local ccc=1
-		foreach x of local strs{
-			mata:st_local("ha",strofreal(max(strlen(strs[.,`ccc']))))
-			if (`ha'!=0) gen str`ha' `x'= ""
-			else gen str1 `x'= ""
-			lab var `x' "Group by `x'"
-			local ccc=`ccc'+1
-		}
-		mata: st_sstore(.,tokens(st_local("strs")),.,strs)
-	}
-	
-	foreach x of local lasvar{
-		foreach y of local `x'{
-			if ("`x'"!="by2"){
-				gen double `y' = .
-				lab var `y' "`x' of `y'"
-				local _all `_all' `y'
-			}
-			else{
-				gen double `y' = .
-				lab var `y' "Group by `y'"
-				//if `"`_val`y''"'!=""{
-				//lab def `y' `_val`y''
-				//lab val `y' `y' 
-				//}
+	if ("`merge'"!=""){
+		local lasvar  `procs2'
+		foreach x of local lasvar{
+			foreach y of local `x'{				
+				gen double `x'_`y' = .
+				lab var `x'_`y' "`x' of `y'"
+				local _all `_all' `x'_`y'
+				noi:mata: st_store(.,tokens(st_local("_all")),"`_useit'",theexpanse(info,xx))			
 			}
 		}
 	}
-	
-	if ("`by2'"!="") mata: st_store(.,tokens(st_local("by2")),.,nostrs)
-	mata: st_store(.,tokens(st_local("_all")),.,xx)
-	//apply label back
-	if ("`vallabs'"!=""){
-		do `labeldo'
-		foreach x of local by2 {
-			if "`lbl_`x''"~="" lab val `x' `lbl_`x''
+	else{
+		//SAVE RESULTS in STATA
+		clear
+		local lasvar  by2 `procs2'
+		local o=_obs_[1,1]
+		
+		set obs `o'
+		if "`strs'"!=""{
+			local ccc=1
+			foreach x of local strs{
+				mata:st_local("ha",strofreal(max(strlen(strs[.,`ccc']))))
+				if (`ha'!=0) gen str`ha' `x'= ""
+				else gen str1 `x'= ""
+				lab var `x' "Group by `x'"
+				local ccc=`ccc'+1
+			}
+			mata: st_sstore(.,tokens(st_local("strs")),.,strs)
+		}
+		
+		foreach x of local lasvar{
+			foreach y of local `x'{
+				if ("`x'"!="by2"){
+					gen double `y' = .
+					lab var `y' "`x' of `y'"
+					local _all `_all' `y'
+				}
+				else{
+					gen double `y' = .
+					lab var `y' "Group by `y'"
+					//if `"`_val`y''"'!=""{
+					//lab def `y' `_val`y''
+					//lab val `y' `y' 
+					//}
+				}
+			}
+		}
+		
+		if ("`by2'"!="") mata: st_store(.,tokens(st_local("by2")),.,nostrs)
+		mata: st_store(.,tokens(st_local("_all")),.,xx)
+		//apply label back
+		if ("`vallabs'"!=""){
+			do `labeldo'
+			foreach x of local by2 {
+				if "`lbl_`x''"~="" lab val `x' `lbl_`x''
+			}
 		}
 	}
 	mata: mata drop area info nostrs 
@@ -711,6 +723,17 @@ function _fpctilebig(real colvector X, si ,real scalar nq, |real colvector w) {
 	q[|rr|] = nq
 	if (si==1) return(q[order(data,1)])
 	else return(q)
+}
+
+function theexpanse(real matrix info, real matrix xx){
+	for(i=1; i<=rows(info);i++){
+		m00 = info[i,2] - info[i,1] + 1
+		if(i==1) Homer = J(m00,cols(xx),xx[i,.])
+		else     Homer = Homer \ J(m00,1,xx[i,.])
+	}
+	
+	return(Homer)
+
 }
 
 end
