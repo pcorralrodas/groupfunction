@@ -311,10 +311,10 @@ if ("`norestore'"!="") keep `wvar' `by' `sum' `rawsum' `mean' `first' `max' `min
 			foreach y of local `x'{				
 				gen double `x'_`y' = .
 				lab var `x'_`y' "`x' of `y'"
-				local _all `_all' `x'_`y'
-				noi:mata: st_store(.,tokens(st_local("_all")),"`_useit'",theexpanse(info,xx))			
+				local _all `_all' `x'_`y'			
 			}
 		}
+		noi:mata: st_store(.,tokens(st_local("_all")),"`_useit'",theexpanse(info,xx))
 	}
 	else{
 		//SAVE RESULTS in STATA
@@ -728,7 +728,7 @@ function _fpctilebig(real colvector X, si ,real scalar nq, |real colvector w) {
 function theexpanse(real matrix info, real matrix xx){
 	for(i=1; i<=rows(info);i++){
 		m00 = info[i,2] - info[i,1] + 1
-		if(i==1) Homer = J(m00,cols(xx),xx[i,.])
+		if(i==1) Homer = J(m00,1,xx[i,.])
 		else     Homer = Homer \ J(m00,1,xx[i,.])
 	}
 	
