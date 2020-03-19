@@ -650,11 +650,24 @@ foreach x of local options{
 			dis in green "fgt``x'' : `_x0'"
 		}
 		else{
-			mata:p=_CPB`x'(y,w)
-			mata: st_local("_x0",strofreal(p))
-			return local `x' = `_x0'
-			
-			dis in green "`x' : `_x0'"
+			if ("`x'"=="gini"){
+				cap python: gini("`vlist'","`wvar'","`touse1'")
+				if (_rc!=0){
+					mata:p=_CPB`x'(y,w)
+					mata: st_local("_x0",strofreal(p))
+					return local `x' = `_x0'
+				} 
+				else{
+					return local `x' = r(gini)
+				}
+			}
+			else{
+				mata:p=_CPB`x'(y,w)
+				mata: st_local("_x0",strofreal(p))
+				return local `x' = `_x0'
+				
+				dis in green "`x' : `_x0'"
+			}
 		}	
 	}
 }	
@@ -739,6 +752,28 @@ function theexpanse(real matrix info, real matrix xx){
 
 }
 
+end
+
+//The below is ready to insert into and ado! Yay you!!
+python
+#import data command
+from sfi import Data
+#import numpy
+import numpy as np
+from numpy import cumsum
+from sfi import Scalar
+
+def gini(y,w, touse):
+	y = np.matrix(Data.get(y, selectvar=touse))
+	w = np.matrix(Data.get(w, selectvar=touse))
+	t = np.array(np.transpose(np.concatenate([y,w])))
+	t = t[t[:,0].argsort()]
+	y = t[:,0]
+	w= t[:,1]
+	yw = y*w
+	rxw = cumsum(yw) - yw/2
+	gini = 1-2*((np.transpose(rxw).dot(w)/np.transpose(y).dot(w))/sum(w))
+	Scalar.setValue("r(gini)", gini)
 end
 
 
