@@ -1,0 +1,14 @@
+v 1
+
+d 'GROUPFUNCTION': Faster version of collapse
+d
+d Replaces several basic collapse functions (mean, sum, variance, standard deviation, first, max, min). The command is several orders of magnitude faster than collapse when summarizing multiple vectors on large data
+d
+d Authors: Paul Corral, Minh Nguyen, and Joao Pedro Azevedo  - WB 
+d
+d Distribution-Date: 08jun2019
+  
+f https://github.com/pcorralrodas/groupfunction/blob/master/groupfunction.ado
+f https://github.com/pcorralrodas/groupfunction/blob/master/groupfunction.sthlp
+
+e
